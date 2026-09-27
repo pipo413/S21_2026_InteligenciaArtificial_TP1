@@ -14,15 +14,65 @@ namespace TP2_Prototipo_Unificado;
 
 public static class Program
 {
+    // Rango y validaciones de entrada
     private const int RANGO_MIN = -10;
     private const int RANGO_MAX = 10;
     private const int POSITIVO_MIN = 1;
+    private const int DELTA_H_MAX = 5;
+    private const int MARGEN_ALREDEDOR_DE_A = 3;
+
+    // Umbrales
+    private const double UMBRAL_AHORRO_PARA_MOSTRAR_SPEEDUP_MS = 0.5;
+    private const double MIN_DIVISOR_TIEMPO_MS = 0.01;
+    private const double CIEN_PORCIENTO = 100.0;
+
+    // IDs de opciones del menú
+    private const string OPCION_CONFIGURAR = "1";
+    private const string OPCION_BFS = "2";
+    private const string OPCION_PRIMERO_MEJOR = "3";
+    private const string OPCION_COMPARAR = "4";
+    private const string OPCION_RELIEVE = "5";
+    private const string OPCION_SALIR = "0";
+
+    // Anchos de columna (formato de tablas)
+    private const int ANCHO_ETIQUETA = -32;
+    private const int ANCHO_VALOR = 18;
+    private const int ANCHO_VALOR_ESTADO = 6;
+    private const int ANCHO_TABLA = 68;
+    private const int ANCHO_ITER_NUM = 2;
+    private const int ANCHO_POS = 3;
+    private const int ANCHO_ALTURA = 6;
+    private const int ANCHO_H = 6;
+    private const int ANCHO_HEUR = 6;
+    private const char CARACTER_SEPARADOR = '-';
+
+    // Marcas en la tabla del relieve
+    private const string MARCA_B = "← B";
+    private const string MARCA_A = "★ A";
+
+    // Direcciones
+    private const string DIR_DERECHA = "a la derecha";
+    private const string DIR_IZQUIERDA = "a la izquierda";
+    private const string DIR_SOBRE_B = "sobre B";
+
+    // Flags CLI
+    private const string FLAG_DEMO = "--demo";
+    private const string FLAG_B = "--b";
+    private const string FLAG_A = "--a";
+    private const string FLAG_DELTA = "--delta";
+    private const string FLAG_L = "--l";
+    private const string FLAG_ALTURA = "--altura";
+    private const string FLAG_PEND = "--pend";
+
+    // Marcadores de resultado
+    private const string RESULTADO_ENCONTRO = "META ENCONTRADA";
+    private const string RESULTADO_FALLO = "FALLO: meta NO encontrada dentro de la cota L.";
 
     public static void Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
 
-        if (args.Length > 0 && args[0] == "--demo")
+        if (args.Length > 0 && args[0] == FLAG_DEMO)
         {
             var problemaDemo = ParsearArgumentos(args, ProblemaPorDefecto());
             EjecutarDemo(problemaDemo);
@@ -44,26 +94,26 @@ public static class Program
 
             switch (op)
             {
-                case "1":
+                case OPCION_CONFIGURAR:
                     problema = ConfigurarProblema(problema);
                     break;
-                case "2":
+                case OPCION_BFS:
                     EjecutarAlgoritmo(problema, new BusquedaExhaustiva(), verbose: true);
                     Pausa();
                     break;
-                case "3":
+                case OPCION_PRIMERO_MEJOR:
                     EjecutarAlgoritmo(problema, new BusquedaHeuristica(), verbose: true);
                     Pausa();
                     break;
-                case "4":
+                case OPCION_COMPARAR:
                     EjecutarComparacion(problema);
                     Pausa();
                     break;
-                case "5":
+                case OPCION_RELIEVE:
                     MostrarRelieve(problema);
                     Pausa();
                     break;
-                case "0":
+                case OPCION_SALIR:
                     return;
                 default:
                     Console.WriteLine("Opción no válida. Presione ENTER para continuar...");
@@ -88,16 +138,16 @@ public static class Program
     {
         Console.WriteLine();
         Console.WriteLine("Parámetros del problema:");
-        Console.WriteLine($"   AlturaMax    = {p.AlturaMax,6}    (altura del relieve en A)");
-        Console.WriteLine($"   Pendiente    = {p.Pendiente,6}    (decaimiento del relieve por unidad de distancia)");
-        Console.WriteLine($"   A (meta)     = {p.Meta,6}    (centro del anillo)");
-        Console.WriteLine($"   B (inicial)  = {p.Inicial,6}    (posición teórica del brazo)");
-        Console.WriteLine($"   ΔH           = {p.DeltaH,6}    (incremento elemental)");
-        Console.WriteLine($"   L (cota)     = {p.Limite,6}    (exploración máxima a cada lado de B)");
+        Console.WriteLine($"   AlturaMax    = {p.AlturaMax,ANCHO_VALOR_ESTADO}    (altura del relieve en A)");
+        Console.WriteLine($"   Pendiente    = {p.Pendiente,ANCHO_VALOR_ESTADO}    (decaimiento del relieve por unidad de distancia)");
+        Console.WriteLine($"   A (meta)     = {p.Meta,ANCHO_VALOR_ESTADO}    (centro del anillo)");
+        Console.WriteLine($"   B (inicial)  = {p.Inicial,ANCHO_VALOR_ESTADO}    (posición teórica del brazo)");
+        Console.WriteLine($"   ΔH           = {p.DeltaH,ANCHO_VALOR_ESTADO}    (incremento elemental)");
+        Console.WriteLine($"   L (cota)     = {p.Limite,ANCHO_VALOR_ESTADO}    (exploración máxima a cada lado de B)");
         int dist = Math.Abs(p.Meta - p.Inicial);
-        string dir = p.Meta > p.Inicial ? "a la derecha"
-                  : p.Meta < p.Inicial ? "a la izquierda"
-                  : "sobre B";
+        string dir = p.Meta > p.Inicial ? DIR_DERECHA
+                  : p.Meta < p.Inicial ? DIR_IZQUIERDA
+                  : DIR_SOBRE_B;
         Console.WriteLine($"\n   La meta está a {dist} ΔH de B ({dir}).");
     }
 
@@ -120,7 +170,7 @@ public static class Program
 
         int b     = LeerEnteroEnRango("B (inicial)", actual.Inicial, RANGO_MIN, RANGO_MAX);
         int a     = LeerEnteroEnRango("A (meta)", actual.Meta, RANGO_MIN, RANGO_MAX);
-        int delta = LeerEnteroEnRango("ΔH", actual.DeltaH, POSITIVO_MIN, 5);
+        int delta = LeerEnteroEnRango("ΔH", actual.DeltaH, POSITIVO_MIN, DELTA_H_MAX);
         int l     = LeerEnteroEnRango("L (cota)", actual.Limite, POSITIVO_MIN, RANGO_MAX);
         double am = LeerDoublePositivo("AlturaMax", actual.AlturaMax);
         double pe = LeerDoublePositivo("Pendiente", actual.Pendiente);
@@ -168,7 +218,7 @@ public static class Program
             foreach (var it in resultado.Trace)
             {
                 string extra = it.InfoExtra ?? "";
-                Console.WriteLine($"  Iter {it.Numero,2}: pos={it.Posicion,3}  {extra}");
+                Console.WriteLine($"  Iter {it.Numero,ANCHO_ITER_NUM}: pos={it.Posicion,ANCHO_POS}  {extra}");
             }
         }
 
@@ -179,12 +229,12 @@ public static class Program
     {
         if (r.Encontro)
         {
-            Console.WriteLine($"   META ENCONTRADA");
+            Console.WriteLine($"   {RESULTADO_ENCONTRO}");
             Console.WriteLine($"  Trayecto: {string.Join(" → ", r.Camino)}");
         }
         else
         {
-            Console.WriteLine("  FALLO: meta NO encontrada dentro de la cota L.");
+            Console.WriteLine($"  {RESULTADO_FALLO}");
         }
         Console.WriteLine($"  Palpados realizados:  {r.Palpados}");
         Console.WriteLine($"  Nodos expandidos:     {r.NodosExpandidos}");
@@ -219,20 +269,20 @@ public static class Program
         var tiempoParalelo = cronometroParalelo.Elapsed;
         var tiempoSecuencialEstimado = rBfs.Duracion + rPm.Duracion;
 
-        Console.WriteLine($"  {"Métrica",-32} {"BFS (exhaustivo)",18} {"Primero el mejor",18}");
-        Console.WriteLine($"  {new string('-', 68)}");
-        Console.WriteLine($"  {"¿Encontró la meta?",-32} {(rBfs.Encontro ? "Sí" : "No"),18} {(rPm.Encontro ? "Sí" : "No"),18}");
-        Console.WriteLine($"  {"Palpados realizados",-32} {rBfs.Palpados,18} {rPm.Palpados,18}");
-        Console.WriteLine($"  {"Nodos expandidos",-32} {rBfs.NodosExpandidos,18} {rPm.NodosExpandidos,18}");
-        Console.WriteLine($"  {"Tiempo individual (ms)",-32} {rBfs.Duracion.TotalMilliseconds,18:F2} {rPm.Duracion.TotalMilliseconds,18:F2}");
-        Console.WriteLine($"  {"Longitud del trayecto",-32} {(rBfs.Encontro ? rBfs.Camino.Count.ToString() : "-"),18} {(rPm.Encontro ? rPm.Camino.Count.ToString() : "-"),18}");
+        Console.WriteLine($"  {"Métrica",ANCHO_ETIQUETA} {"BFS (exhaustivo)",ANCHO_VALOR} {"Primero el mejor",ANCHO_VALOR}");
+        Console.WriteLine($"  {new string(CARACTER_SEPARADOR, ANCHO_TABLA)}");
+        Console.WriteLine($"  {"¿Encontró la meta?",ANCHO_ETIQUETA} {(rBfs.Encontro ? "Sí" : "No"),ANCHO_VALOR} {(rPm.Encontro ? "Sí" : "No"),ANCHO_VALOR}");
+        Console.WriteLine($"  {"Palpados realizados",ANCHO_ETIQUETA} {rBfs.Palpados,ANCHO_VALOR} {rPm.Palpados,ANCHO_VALOR}");
+        Console.WriteLine($"  {"Nodos expandidos",ANCHO_ETIQUETA} {rBfs.NodosExpandidos,ANCHO_VALOR} {rPm.NodosExpandidos,ANCHO_VALOR}");
+        Console.WriteLine($"  {"Tiempo individual (ms)",ANCHO_ETIQUETA} {rBfs.Duracion.TotalMilliseconds,ANCHO_VALOR:F2} {rPm.Duracion.TotalMilliseconds,ANCHO_VALOR:F2}");
+        Console.WriteLine($"  {"Longitud del trayecto",ANCHO_ETIQUETA} {(rBfs.Encontro ? rBfs.Camino.Count.ToString() : "-"),ANCHO_VALOR} {(rPm.Encontro ? rPm.Camino.Count.ToString() : "-"),ANCHO_VALOR}");
 
         Console.WriteLine();
         Console.WriteLine($"  Tiempo paralelo (wall clock): {tiempoParalelo.TotalMilliseconds:F2} ms");
         Console.WriteLine($"  Tiempo secuencial estimado (suma): {tiempoSecuencialEstimado.TotalMilliseconds:F2} ms");
         double ahorroMs = tiempoSecuencialEstimado.TotalMilliseconds - tiempoParalelo.TotalMilliseconds;
-        if (ahorroMs > 0.5)
-            Console.WriteLine($"  Speedup del paralelismo: {tiempoSecuencialEstimado.TotalMilliseconds / Math.Max(0.01, tiempoParalelo.TotalMilliseconds):F2}x");
+        if (ahorroMs > UMBRAL_AHORRO_PARA_MOSTRAR_SPEEDUP_MS)
+            Console.WriteLine($"  Speedup del paralelismo: {tiempoSecuencialEstimado.TotalMilliseconds / Math.Max(MIN_DIVISOR_TIEMPO_MS, tiempoParalelo.TotalMilliseconds):F2}x");
 
         Console.WriteLine();
         if (rBfs.Encontro)
@@ -249,7 +299,7 @@ public static class Program
         else if (rPm.Encontro && (!rBfs.Encontro || rPm.Palpados < rBfs.Palpados))
         {
             int diff = rBfs.Encontro ? rBfs.Palpados - rPm.Palpados : rPm.Palpados;
-            double pct = rBfs.Encontro ? 100.0 * diff / rBfs.Palpados : 100.0;
+            double pct = rBfs.Encontro ? CIEN_PORCIENTO * diff / rBfs.Palpados : CIEN_PORCIENTO;
             Console.WriteLine($"    Primero el mejor gana: {diff} palpado(s) menos " +
                               (rBfs.Encontro ? $"(reducción del {pct:F0} %)" : "(BFS no encontró)"));
         }
@@ -275,8 +325,8 @@ public static class Program
 
         int desde = Math.Max(RANGO_MIN, problema.Inicial - problema.Limite);
         int hasta = Math.Min(RANGO_MAX, problema.Inicial + problema.Limite);
-        desde = Math.Min(desde, problema.Meta - 3);
-        hasta = Math.Max(hasta, problema.Meta + 3);
+        desde = Math.Min(desde, problema.Meta - MARGEN_ALREDEDOR_DE_A);
+        hasta = Math.Max(hasta, problema.Meta + MARGEN_ALREDEDOR_DE_A);
 
         for (int h = desde; h <= hasta; h++)
         {
@@ -284,9 +334,9 @@ public static class Program
             double altura = problema.AlturaRelieveEn(h);
             double diferencia = problema.AlturaMax - altura;
             double hHeur = diferencia / problema.Pendiente;
-            string marca = (h == problema.Inicial) ? "← B" :
-                           (h == problema.Meta)    ? "★ A" : "";
-            Console.WriteLine($"   {h,3}       {altura,6:F1}              {diferencia,6:F1}                    {hHeur,6:F1}    {marca}");
+            string marca = (h == problema.Inicial) ? MARCA_B :
+                           (h == problema.Meta)    ? MARCA_A : "";
+            Console.WriteLine($"   {h,ANCHO_POS}       {altura,ANCHO_ALTURA:F1}              {diferencia,ANCHO_ALTURA:F1}                    {hHeur,ANCHO_HEUR:F1}    {marca}");
         }
 
         Console.WriteLine();
@@ -315,13 +365,13 @@ public static class Program
 
     private static Problema ParsearArgumentos(string[] args, Problema actual)
     {
-        int b = ObtenerFlag(args, "--b") is string sb && int.TryParse(sb, out var nb) ? nb : actual.Inicial;
-        int a = ObtenerFlag(args, "--a") is string sa && int.TryParse(sa, out var na) ? na : actual.Meta;
-        int d = ObtenerFlag(args, "--delta") is string sd && int.TryParse(sd, out var nd) ? nd : actual.DeltaH;
-        int l = ObtenerFlag(args, "--l") is string sl && int.TryParse(sl, out var nl) ? nl : actual.Limite;
-        double am = ObtenerFlag(args, "--altura") is string sam && double.TryParse(sam,
+        int b = ObtenerFlag(args, FLAG_B) is string sb && int.TryParse(sb, out var nb) ? nb : actual.Inicial;
+        int a = ObtenerFlag(args, FLAG_A) is string sa && int.TryParse(sa, out var na) ? na : actual.Meta;
+        int d = ObtenerFlag(args, FLAG_DELTA) is string sd && int.TryParse(sd, out var nd) ? nd : actual.DeltaH;
+        int l = ObtenerFlag(args, FLAG_L) is string sl && int.TryParse(sl, out var nl) ? nl : actual.Limite;
+        double am = ObtenerFlag(args, FLAG_ALTURA) is string sam && double.TryParse(sam,
             NumberStyles.Float, CultureInfo.InvariantCulture, out var nam) ? nam : actual.AlturaMax;
-        double pe = ObtenerFlag(args, "--pend") is string spe && double.TryParse(spe,
+        double pe = ObtenerFlag(args, FLAG_PEND) is string spe && double.TryParse(spe,
             NumberStyles.Float, CultureInfo.InvariantCulture, out var npe) ? npe : actual.Pendiente;
         return new Problema(b, a, d, l, am, pe);
     }
